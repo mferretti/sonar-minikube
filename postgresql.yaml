@@ -1,0 +1,108 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: postgresql-db
+  labels:
+    name: postgresql-db
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace: postgresql-db
+  name: postgresql-pass
+data:
+  # The password is "password"
+  password: cGFzc3dvcmQ=
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: postgresql-db
+  name: postgresql-db
+  labels:
+    app: postgresql
+spec:
+  type: NodePort
+  ports:
+    - port: 5432
+      targetPort: 5432
+      nodePort: 30042
+  selector:
+    app: postgresql
+    tier: postgresql
+  # clusterIP: None
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-volume
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    #minikube path where data will be retained even during restart: /mnt/data
+    path: "/mnt/data/postgres"
+  claimRef:
+    namespace: postgresql-db
+    name: postgresql-pv-claim
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: postgresql-db
+  name: postgresql-pv-claim
+  labels:
+    app: postgresql
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: postgresql-db
+  name: postgresql-db
+  labels:
+    app: postgresql
+spec:
+  selector:
+    matchLabels:
+      app: postgresql
+      tier: postgresql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: postgresql
+        tier: postgresql
+    spec:
+      containers:
+      - image: postgres:14
+        name: postgresql
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgresql-pass
+              key: password
+        ports:
+        - containerPort: 5432
+          name: postgresql
+        volumeMounts:
+        - name: postgresql-persistent-storage
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgresql-persistent-storage
+        persistentVolumeClaim:
+          claimName: postgresql-pv-claim
+
+

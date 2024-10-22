@@ -1,0 +1,209 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sonarqube
+  labels:
+    name: sonarqube
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: sonarqube
+  name: sonarqube-ingress
+  # annotations:
+  #   nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: sonarqube.test
+    http:
+      paths:
+      - backend:
+          service:
+            name: sonarqube-service
+            port:
+              number: 9000
+        path: /
+        pathType: Prefix
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: sonarqube
+  name: sonarqube-service
+  labels:
+    app: sonarqube
+spec:
+  type: NodePort
+  ports:
+    - name: sonar-internal
+      port: 9000
+      protocol: TCP
+      targetPort: 9000
+      nodePort: 30090
+  selector:
+    app: sonarqube
+  # clusterIP: None
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: sonarqube
+  name: sonarqube
+  labels:
+    app: sonarqube
+spec:
+  selector:
+    matchLabels:
+      app: sonarqube
+  strategy: 
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: sonarqube
+    spec:
+      initContainers:
+      - name: volume-permission
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command: ["sh", "-c", "chown -R 1000:0 /data && chown -R 1000:0 /logs && chown -R 1000:0 //extensions" ]
+        volumeMounts:
+        - name: sonarqube-data
+          mountPath: /data
+        - name: sonarqube-extensions
+          mountPath: /extensions
+        - name: sonarqube-logs
+          mountPath: /logs
+        securityContext:
+          runAsUser: 0
+      containers:
+        - name: mysonar
+          image: sonarqube:community
+          imagePullPolicy: IfNotPresent
+          env:
+          - name: SONAR_JDBC_URL
+            value: jdbc:postgresql://postgresql-db.postgresql-db.svc.cluster.local:5432/sonar
+          - name: SONAR_JDBC_USERNAME
+            value: sonar
+          - name: SONAR_JDBC_PASSWORD
+            value: sonar
+          ports:
+          - containerPort: 9000
+            name: sonarport
+          volumeMounts:
+            - name: sonarqube-data
+              mountPath: /opt/sonarqube/data
+            - name: sonarqube-extensions
+              mountPath: /opt/sonarqube/extensions
+            - name: sonarqube-logs
+              mountPath: /opt/sonarqube/logs 
+      volumes:
+        - name: sonarqube-data
+          persistentVolumeClaim:
+            claimName: sonarqube-data-claim
+        - name: sonarqube-extensions
+          persistentVolumeClaim:
+            claimName: sonarqube-extensions-claim
+        - name: sonarqube-logs
+          persistentVolumeClaim:
+            claimName: sonarqube-logs-claim
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: sonarqube
+  name: sonarqube-data-claim
+  labels:
+    app: sonarqube
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: sonarqube
+  name: sonarqube-extensions-claim
+  labels:
+    app: sonarqube
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: sonarqube
+  name: sonarqube-logs-claim
+  labels:
+    app: sonarqube
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sonar-data-volume
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    #minikube path where data will be retained even during restart: /mnt/data
+    path: "/mnt/data/sonarqube/logs"
+  claimRef:
+    namespace: sonarqube
+    name: sonarqube-data-claim
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sonar-extensions-volume
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 500Mi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    #minikube path where data will be retained even during restart: /mnt/data
+    path: "/mnt/data/sonarqube/extensions"
+  claimRef:
+    namespace: sonarqube
+    name: sonarqube-extensions-claim  
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sonar-logs-volume
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 500Mi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    #minikube path where data will be retained even during restart: /mnt/data
+    path: "/mnt/data/sonarqube/logs"
+  claimRef:
+    namespace: sonarqube
+    name: sonarqube-logs-claim      

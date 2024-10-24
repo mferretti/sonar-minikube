@@ -8,7 +8,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: sonarqube.cluster
+  - host: sonarqube.test
     http:
       paths:
       - backend:

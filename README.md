@@ -126,7 +126,27 @@ The Kubernetes manifests in the `split` directory are there for ease of inspecti
 - `deployment.yaml`: Defines the SonarQube deployment, including an init container for setting volume permissions.
 - `ingress.yaml`: Defines the Ingress resource for accessing SonarQube.
 
+### Request entity size
+In case you get an error 413 `running mvn sonar:sonar ...` of the kind : 
+```
+[ERROR] <head><title>413 Request Entity Too Large</title></head>
+[ERROR] <body>
+[ERROR] <center><h1>413 Request Entity Too Large</h1></center>
+[ERROR] <hr><center>nginx</center>
+[ERROR] </body>
+[ERROR] </html>
+```
 
+change the ingress stanza/file and add an annotation like so : 
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: sonarqube
+  name: sonarqube-ingress
+  annotations:                                         #<- add this line
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m" #<- add this line. Adjust the size
+```
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

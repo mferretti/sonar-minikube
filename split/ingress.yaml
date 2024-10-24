@@ -3,8 +3,6 @@ kind: Ingress
 metadata:
   namespace: sonarqube
   name: sonarqube-ingress
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   ingressClassName: nginx
   rules:

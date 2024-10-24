@@ -34,19 +34,31 @@ split/
 
 ## Setup Instructions
 
-### Step 1: Start Minikube
+### Step 1: Start and configure Minikube
 
 Start your Minikube cluster:
 
 ```sh
 minikube start
 ```
+
+If you did not already do so, enable the ingress addon: 
+```sh
+minikube addons enable ingress
+```
+
+
 ### Step 2: Apply postgresql manifest
 The provided `postgresql.yaml` creates a PostgreSQL database in a confined namespace. Once the database is up, connect to it and create a `sonar` database. 
 
 ### Step 3: Apply Kubernetes Manifests
 
 Apply the single manifest `sonarqube.yaml` or use the manifests located in the `split` directory:
+```sh
+kubectl apply -f sonarqube.yaml
+```
+
+or 
 
 ```sh
 kubectl apply -f namespace.yaml
@@ -88,6 +100,17 @@ You should end up with something like :
 ```
 Please note: the ip in the `URL` column may change.
 If you find the service `sonarqube-service`, you only need to open the corresponding `URL` and you're set.
+
+Another option is to add an entry in /etc/hosts that's then being resolved by the ingress you deployed. If you havent' changed
+the ingress, your sonarqube ingress will route traffic requests for `http://sonarqube.test`.
+#### Issues with ingress-dns
+The installation documentation for the ingress-dns addon does not always work. I myself had to bang my head on a wall for qyute some time in order to make systemd-resolved work with split dns, until I resolved to install a local dns (dnsmasq, in my case) ... and [that wasn't a piece of cake either](https://github.com/kubernetes/minikube/issues/18727#issuecomment-2432626834).
+You should arm yourself with patience and be ready to fiddle with your system. You can find solutions to most of your problems by doing some smart Google search. As usual, when everything else fails, read the manuals.
+
+```sh
+echo "$(minikube ip) sonarqube.test" | sudo tee -a /etc/hosts
+```
+The latter will create an entry with the ip address of your minikube server resolving `sonarqube.test` to that ip.
 
 ## Configuration Details
 
